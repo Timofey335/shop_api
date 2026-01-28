@@ -25,7 +25,7 @@ def main():
     cookies = {
     'FSIN_AGENCY': '219013',
     'FSIN_OFERTA_HAS_SHOP_219013': 'Y'
-}
+    }
 
     url = 'https://kaluzhskoe.shop/catalog/'
 
