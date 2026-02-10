@@ -70,7 +70,7 @@ def fetch_products(shop_id):
             products.append({
                 'name': name,
                 'url': 'https://kaluzhskoe.shop' + url,
-                'avaibility': stock_quantity,
+                'availability': stock_quantity,
             })
 
         except AttributeError:
