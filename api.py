@@ -6,9 +6,36 @@ from bs4 import BeautifulSoup
 import time
 import re
 from difflib import SequenceMatcher
+import redis
+import json
 
 app = Flask(__name__)
 CORS(app)
+
+# Подключение к Redis
+redis_client = redis.Redis(host='redis', port=6379, db=1, decode_responses=True)
+
+CACHE_TTL = 3600 # максимальный срок жизни данных один час
+
+def get_cached_products(shop_id):
+    shop_id = str(shop_id)
+    data_key = f'shop:{shop_id}'
+    ts_key = f'shop:{shop_id}:ts'
+    
+    data = redis_client.get(data_key)
+    timestamp = redis_client.get(ts_key)
+    
+    if not data or not timestamp:
+        return None, None
+    
+    timestamp = int(timestamp)
+    now = int(time.time())
+    
+    if now - timestamp > CACHE_TTL:
+        return None, timestamp
+    
+    products = json.loads(data)
+    return products, timestamp    
 
 # Получить список все доступных продуктов на сайте
 def fetch_products(shop_id):
@@ -79,7 +106,7 @@ def fetch_products(shop_id):
     return products
 
 cache = {}
-CACHE_TTL = 300
+CACHE_TTL = 900
 
 # Получаем товары из кэша, если кэш старый, то обновляем кэш
 def get_cached_products(shop_id):
@@ -159,11 +186,25 @@ def get_products():
     except ValueError:
         return jsonify({'error': 'shop_id must be a number'}), 400
     
-    products = get_cached_products(shop_id)
-
+    products, timestamp = get_cached_products(shop_id)
+    
+    if products is None and timestamp is None:
+        return jsonify({
+            'error': 'No data',
+            'shop_id': shop_id
+        }), 404
+    
+    if products is None:
+        return jsonify({
+            'error': 'Data stale',
+            'shop_id': shop_id,
+            'last_update': timestamp
+        }), 503
+        
     return jsonify({
         'shop_id': shop_id,
         'count': len(products),
+        'fresh': True,
         'products': products
     })
 
@@ -180,7 +221,20 @@ def search_products():
     except ValueError:
         return jsonify({'error': 'shop_id must be a number'}), 400
     
-    products = get_cached_products(shop_id)
+    products, timestamp = get_cached_products(shop_id)
+    
+    if products is None and timestamp is None:
+        return jsonify({
+            'error': 'No data',
+            'shop_id': shop_id
+        }), 404
+        
+    if products is None:
+        return jsonify({
+            'error': 'Data stale',
+            'shop_id': shop_id,
+            'last_update': timestamp
+        }), 503
 
     results = smart_search(products, query, threshold=0.5)
 
@@ -188,6 +242,7 @@ def search_products():
         'shop_id': shop_id,
         'query': query,
         'count': len(results),
+        'fresh': True,
         'products': results
     })
 
