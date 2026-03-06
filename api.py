@@ -68,7 +68,6 @@ def fetch_products(shop_id):
 # до тех пор пока не пропадет символ пагинации - стрелка
     while url:
         response = requests.get(url, headers=headers, cookies=cookies)
-        print(response.status_code)
         soup = BeautifulSoup(response.text, 'lxml')
         block = soup.select_one('div#catalog')
 
