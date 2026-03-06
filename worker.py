@@ -3,7 +3,7 @@ import json
 import redis
 from api import fetch_products
 
-redis_client = redis.Redis(host='redis', port=6379, db=1, decode_responses=True)
+redis_client = redis.Redis(host='127.0.0.1', port=6379, db=1, decode_responses=True)
 
 SHOPS = {
     'СИЗО 1': '218999',

@@ -13,7 +13,7 @@ app = Flask(__name__)
 CORS(app)
 
 # Подключение к Redis
-redis_client = redis.Redis(host='redis', port=6379, db=1, decode_responses=True)
+redis_client = redis.Redis(host='127.0.0.1', port=6379, db=1, decode_responses=True)
 
 CACHE_TTL = 3600 # максимальный срок жизни данных один час
 
@@ -101,26 +101,6 @@ def fetch_products(shop_id):
 
         except AttributeError:
             continue
-
-    return products
-
-cache = {}
-CACHE_TTL = 900
-
-# Получаем товары из кэша, если кэш старый, то обновляем кэш
-def get_cached_products(shop_id):
-    global cache
-
-    now = time.time()
-
-    if shop_id in cache:
-        products, timestamp = cache[shop_id]
-        if now - timestamp < CACHE_TTL:
-            print(f'[Python] Cache for {shop_id} shop')
-            return products
-        
-    products = fetch_products(shop_id)
-    cache[shop_id] = (products, now)
 
     return products
 
