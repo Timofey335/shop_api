@@ -9,12 +9,24 @@ from difflib import SequenceMatcher
 import redis
 import json
 
+from logger_config import setup_logger
+
+logger = setup_logger('api')
+
 app = Flask(__name__)
 CORS(app)
 
-# Подключение к Redis
-redis_client = redis.Redis(host='redis', port=6379, db=1, decode_responses=True)
+logger.info('Starting API server...')
 
+try:
+    # Подключение к Redis
+    redis_client = redis.Redis(host='redis', port=6379, db=1, decode_responses=True)
+    redis_client.ping()
+    logger.info('Connected to Redis')
+except Exception as e:
+    logger.error(f'Failed to connect to Redis: {e}')
+    raise
+    
 CACHE_TTL = 3600 # максимальный срок жизни данных один час
 
 def get_cached_products(shop_id):
@@ -22,24 +34,32 @@ def get_cached_products(shop_id):
     data_key = f'shop:{shop_id}'
     ts_key = f'shop:{shop_id}:ts'
     
+    logger.info(f'Fetching products for shop {shop_id}')
+    
     data = redis_client.get(data_key)
     timestamp = redis_client.get(ts_key)
     
     if not data or not timestamp:
+        logger.warning(f'No data found for shop {shop_id}')
         return None, None
     
     timestamp = int(timestamp)
     now = int(time.time())
+    age = now - timestamp
     
-    if now - timestamp > CACHE_TTL:
+    logger.info(f'Data for shop {shop_id} is {age} seconds old')
+    
+    if age > CACHE_TTL:
+        logger.warning(f'Data stale for shop {shop_id}: {age}s > {CACHE_TTL}s')
         return None, timestamp
     
     products = json.loads(data)
+    logger.info(f'Data fresh for shop {shop_id}, {len(products)} products')
     return products, timestamp    
 
 # Получить список все доступных продуктов на сайте
 def fetch_products(shop_id):
-    print("[Pyhton] Starting parse...")
+    # print("[Pyhton] Starting parse...")
 
     shop_id = str(shop_id)
 
@@ -78,11 +98,11 @@ def fetch_products(shop_id):
 
         if next_a and next_a.get('href') :
             url = requests.compat.urljoin(response.url, next_a['href'])
-            print(url)
+            logger.info(url)
 
         time.sleep(0.7)
 
-    print('All cards:', len(all_cards))
+    # print('All cards:', len(all_cards))
 
     products = []
     for item in all_cards:
@@ -159,27 +179,32 @@ def smart_search(products, query, threshold=0.6):
 @app.route('/products', methods=['GET'])
 def get_products():
     shop_id = request.args.get('shop_id', '221918')
+    logger.info(f'Request /products for shop_id={shop_id}')
 
     try:
         shop_id = int(shop_id)
     except ValueError:
+        logger.error(f'Invalid shop_id: {shop_id}')
         return jsonify({'error': 'shop_id must be a number'}), 400
     
     products, timestamp = get_cached_products(shop_id)
     
     if products is None and timestamp is None:
+        logger.error(f'No data available for shop {shop_id}')
         return jsonify({
             'error': 'No data',
             'shop_id': shop_id
         }), 404
     
     if products is None:
+        logger.error(f'Stale data rejected for shop {shop_id}')
         return jsonify({
             'error': 'Data stale',
             'shop_id': shop_id,
             'last_update': timestamp
         }), 503
         
+    logger.info(f'Returning {len(products)} products for shop {shop_id}')   
     return jsonify({
         'shop_id': shop_id,
         'count': len(products),
@@ -191,24 +216,30 @@ def get_products():
 def search_products():
     shop_id = request.args.get('shop_id', '221918')
     query = request.args.get('q', '').strip()
+    
+    logger.info(f'Request /search shop_id={shop_id} query="{query}"')
 
     if len(query) < 2:
+        logger.warning(f'Query too short: "{query}"')
         return jsonify({'error': 'Query is short (min 2 characters)', 'query': query}), 400
     
     try:
         shop_id = int(shop_id)
     except ValueError:
+        logger.error(f'Invalid shop_id: {shop_id}')
         return jsonify({'error': 'shop_id must be a number'}), 400
     
     products, timestamp = get_cached_products(shop_id)
     
     if products is None and timestamp is None:
+        logger.error(f'No data for search in shop {shop_id}')
         return jsonify({
             'error': 'No data',
             'shop_id': shop_id
         }), 404
         
     if products is None:
+        logger.error(f'Stale data for search in shop {shop_id}')
         return jsonify({
             'error': 'Data stale',
             'shop_id': shop_id,
@@ -216,6 +247,7 @@ def search_products():
         }), 503
 
     results = smart_search(products, query, threshold=0.5)
+    logger.info(f'Search "{query}" found {len(results)} results in shop {shop_id}')
 
     return jsonify({
         'shop_id': shop_id,
