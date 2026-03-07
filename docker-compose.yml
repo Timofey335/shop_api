@@ -1,0 +1,29 @@
+services:
+  redis:
+    image: redis:7.4.8-alpine
+    container_name: shop_redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+
+  api:
+    build: .
+    container_name: shop_api
+    command: python3.12 api.py
+    ports: 
+      - "5000:5000"
+    depends_on:
+      - redis
+    restart: unless-stopped
+  worker:
+    build: .
+    container_name: shop_worker
+    command: python3.12 worker.py
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+volumes:
+  redis_data:

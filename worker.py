@@ -3,7 +3,7 @@ import json
 import redis
 from api import fetch_products
 
-redis_client = redis.Redis(host='127.0.0.1', port=6379, db=1, decode_responses=True)
+redis_client = redis.Redis(host='redis', port=6379, db=1, decode_responses=True)
 
 SHOPS = {
     'СИЗО 1': '218999',
@@ -39,16 +39,24 @@ def update_shop(shop_name, shop_id):
     
 def main():
     print('[Worker] starting...')
-    
-    while True:
-        print(f'[Worker] Starting update cycle at {time.strftime("%Y-%m-%d %H:%M:%S")}')
+    print('[Worker] Connecting to Redis...')
+    try:
+        redis_client.ping()
+        print('[Worker] Redis connected')
         
-        for shop_name, shop_id in SHOPS.items():
-            update_shop(shop_name, shop_id)
-            time.sleep(5)
+        while True:
+            print(f'[Worker] Starting update cycle at {time.strftime("%Y-%m-%d %H:%M:%S")}')
             
-        print(f'[Worker] Cycle complete. Sleeping {UPDATE_INTERVAL} seconds...')
-        time.sleep(UPDATE_INTERVAL)
+            for shop_name, shop_id in SHOPS.items():
+                update_shop(shop_name, shop_id)
+                time.sleep(5)
+                
+            print(f'[Worker] Cycle complete. Sleeping {UPDATE_INTERVAL} seconds...')
+            time.sleep(UPDATE_INTERVAL)
+            
+    except Exception as e:
+        print(f'[Worker] Redis connection failed: {e}')
+        raise
             
 if __name__ == '__main__':
     main()

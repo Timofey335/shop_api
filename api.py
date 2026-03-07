@@ -13,7 +13,7 @@ app = Flask(__name__)
 CORS(app)
 
 # Подключение к Redis
-redis_client = redis.Redis(host='127.0.0.1', port=6379, db=1, decode_responses=True)
+redis_client = redis.Redis(host='redis', port=6379, db=1, decode_responses=True)
 
 CACHE_TTL = 3600 # максимальный срок жизни данных один час
 
