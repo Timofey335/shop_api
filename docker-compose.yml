@@ -4,23 +4,22 @@ services:
     container_name: shop_redis
     ports:
       - "6379:6379"
-    restart: unless-stopped
     volumes:
       - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
 
   api:
-    build: .
-    container_name: shop_api
-    command: gunicorn -w 2 -b 0.0.0.0:5000 api:app
-    ports: 
-      - "5000:5000"
+    image: shop-bot.cr.cloud.ru/shop-api:v1.0
+    expose: 
+      - 8000
     depends_on:
       - redis
     restart: unless-stopped
   worker:
-    build: .
-    container_name: shop_worker
-    command: python3.12 worker.py
+    image: shop-bot.cr.cloud.ru/shop-worker:v1.0
     depends_on:
       - redis
     restart: unless-stopped
