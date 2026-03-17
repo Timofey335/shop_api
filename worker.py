@@ -48,7 +48,11 @@ def fetch_products(shop_id):
 
     cookies = {
         'FSIN_AGENCY': shop_id,
-        f'FSIN_OFERTA_HAS_SHOP_{shop_id}': 'Y'
+        'FSIN_LOGIN': '',
+        f'FSIN_OFERTA_HAS_SHOP_{shop_id}': 'Y',
+        'FSIN_SOUND_LOGIN_PLAYED': 'Y',
+        'PHPSESSID': '',
+        'readcigarettes': 'Y',
     }
 
     url = 'https://kaluzhskoe.shop/catalog/'
